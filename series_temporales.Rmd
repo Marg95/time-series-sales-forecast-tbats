@@ -1,0 +1,325 @@
+---
+title: "series_temporales"
+format: html
+server: shiny
+---
+**Series Temporales: ventas**
+Este documento presenta un análisis completo de series temporales aplicado a datos de ventas históricos. El objetivo es modelar y predecir ventas futuras utilizando técnicas avanzadas de pronóstico, específicamente el modelo TBATS, que es adecuado para series con múltiples patrones estacionales.
+
+**Objetivos del Análisis**
+Explorar y visualizar datos de ventas históricos
+
+Aplicar pruebas de estacionariedad (Dickey-Fuller)
+
+Entrenar modelos de pronóstico de series temporales
+
+Evaluar la precisión de las predicciones
+
+Desarrollar una aplicación Shiny interactiva
+
+**Librerías necesarias**
+
+**Forecast:** contiene herramientas para realizar pronósticos o predicciones sobre series temporales **TSA:** contiene funciones y datasets para el análisis de series temporales **tseries:** analisis de seties temporales y finanzas computacionales
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+
+if(!require(forecast)) install.packages("forecast", dependencies = T )
+if(!require(TSA)) install.packages("TSA", dependencies = T)
+if(!require(tseries)) install.packages("tseries", dependencies = T)
+library(forecast)
+library(TSA)
+library(stats)
+library(tseries)
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+```
+
+**Carga y exploración de datos**
+
+El data set corresponde a datos de ventas registrados durante 5 años, desde el 1/1/2013 hasta el 31/12/2017. En este caso, simulamos las ventas de camperas "Nano Puff Jacket" de la empresa textil Patagonia.
+
+```{r}
+ventas_todo <- read_csv("train.csv")
+str(ventas_todo)
+ventas_todo
+```
+
+**Visualización de ventas por tienda**
+
+Se analizan los valores únicos para conocer la cantidad de tiendas y artículos existentes, como así también el total de ventas por tienda.
+
+```{r}
+unique(ventas_todo$store)
+unique(ventas_todo$item)
+```
+
+```{r}
+ventas_todo$store <- as.factor(ventas_todo$store)
+
+ggplot(ventas_todo, aes(x=store, y =sales/1000000)) +
+  geom_area(fill = "#f0f7da", alpha = 0.3)+
+        geom_bar(stat = "identity", fill = "#65b8a6") +
+        labs( title = "Ventas totales por Tiendas", x = "Tiendas", y = "Ventas en millones" )+
+        theme_minimal()
+
+```
+
+**Seleccion y extracción de datos**
+
+Se selecciona aleatoriamente un artículo y se asigna como negocio elegido la tienda 2. Al ser la tienda de mayores ventas, es la se pretende analizar.
+
+```{r}
+set.seed(300) 
+articulo <- sample(1:50, 1)  
+print(articulo)
+negocio <- 2
+negocio
+```
+
+Se extraen los datos con las modificaciones correspondientes.
+
+```{r}
+# Ahora seleccionamos sólo lods datos del articulo y negocio elegidos
+ventas <- subset(ventas_todo, store == negocio & item == articulo)
+ventas <- ventas[, c("date","sales")]
+ventas$date <- as.Date(ventas$date)     # Convertimos la columna 'date' a formato de fecha
+rownames(ventas) <- NULL                # Reiniciamos los nombres de fila
+ventas <- ventas[order(ventas$date),] # Ordenamos por fecha
+ventas
+```
+
+**Visualización del subconjunto seleccionado**
+
+```{r}
+ggplot(ventas, aes(x=date, y = sales))+
+  geom_area(fill = "#f0f7da", alpha = 0.3) +
+        geom_line(color = "#65b8a6")+
+        labs(title = "Ventas en el periodo 2013-2017", x = "Fecha", 
+             y = "Ventas") + theme_minimal()
+```
+
+**Ventas durante el intervalo 12/6/2014 y 24/6/2014**
+
+```{r}
+ventas_rango <- subset(ventas, date >= as.Date("2014-3-1") & date <= as.Date("2014-9-30"))
+
+ggplot(ventas_rango, aes(x=date, y = sales)) +
+  geom_area(fill = "#f0f7da", alpha = 0.3)  +
+        geom_line(color = "#65b8a6", linewidth = 0.6)+
+        labs(title = "Ventas en el intervalo acotado", x = "Fecha", 
+             y = "Ventas") + theme_minimal()
+```
+
+**Prueba de Dicjey Fuller**
+
+**dicjey_fuller** Ayuda a determinar si los datos siguen un proceso estacionario o si tienen tendencias o patrones estacionales que deben tenerse en cuenta el análisis posterior. Si el valor p (p-value) es menor que 0.05, se rechaza la hiótesis nula de que la serie tiene raíces unitarias, lo que indica que la serire es estacionaria.
+
+```{r}
+dickey_fuller <- function(serie){
+  df_test <- adf.test(serie)
+  tstat <- df_test$statistic
+  pvalue <- df_test$p.value
+  
+ 
+  cat("Resultado de la prueba Dickey-Fuller\n")
+  cat("--------------------\n")
+  cat("Estadistica de prueba\t", tstat, "\n")
+  cat("p-value\t\t\t", pvalue, "\n")
+  cat("--------------------\n")
+
+  if (pvalue < 0.05) {
+    cat("La serie es estacionaria \n")
+  } else {
+    cat("La serie no es estacionaria\n")
+  }
+}
+
+dickey_fuller(ventas$sales)
+```
+
+**División de datos**
+
+Se dividen los datos en los subconjuntos de testeo y entrenamiento.
+
+```{r}
+train <- ventas[ventas$date <= "2016-12-31",]
+
+test <- ventas[ventas$date > "2016-12-31",]
+
+
+train$date <- as.Date(train$date)
+test$date <- as.Date(test$date)
+
+train
+test
+```
+
+**Definción de serie temporal con ts y ajuste con el modelo TBATS**
+
+Se crea una serie temporal a partir de la columna sales del conjunto de entrenamiento con una frecuencia de anual, es decir, una observación por día, con periodicidad anual. De esta forma el modelo comprenderá la estructura temporal de los datos para detectar patrones y tendencias.Luego, se ajusta la serie al modelo TBATS, util cuando hay mas de un patrón de estacionalidad.
+
+```{r}
+serie_temporal <- ts(train$sales, frequency = 365)
+
+model_tbats_train <- tbats(serie_temporal, seasonal.periods = c(7, 365.25))
+
+```
+
+**Predicción con forecast**
+
+Se aplica la función forecast sobre el modelo entrenado con un horizonte de predicción de 730 días. Esta función devuelve un objeto con múltiples elementos, como la predicción central, el intervalo de confianza inferior y superior, entre otros. Obtenemos un vector con 730 valores, uno para cada día, y analizamos gráficamente la predicción central y los intervalos de confianza.
+
+```{r}
+horizonte_pronostico <- 730 
+
+pronostico_tbats <- forecast(model_tbats_train, h = horizonte_pronostico)
+
+df_pronostico_completo <- data.frame(
+  Fecha = seq(from = as.Date("2018-01-01"), by = "day", length.out = horizonte_pronostico),
+  Media = pronostico_tbats$mean,
+  LI_95 = pronostico_tbats$lower[,2], 
+  LS_95 = pronostico_tbats$upper[,2]
+)
+
+df_pronostico_completo
+```
+
+```{r}
+
+# Graficar con ggplot2
+ggplot(df_pronostico_completo, aes(x = Fecha, y = Media)) +
+  geom_area(fill = "#f0f7da", alpha = 0.3) +
+  geom_ribbon(aes(ymin = LI_95, ymax = LS_95), fill = "#65b8a6", alpha = 0.7) + # Banda 95%
+  geom_line(aes(y = Media), color = "#2d6073", linewidth = 1) + # Línea de pronóstico
+  ggtitle("Pronóstico de Ventas con Intervalos de Confianza") +
+  xlab("Fecha") +
+  ylab("Ventas") +
+  theme_minimal()  +
+  labs(fill = "Intervalo de Confianza", color = "Línea de Pronóstico")
+
+```
+
+**Cálculo de Ingresos Proyectados en función del valor unitario del artículo**
+
+```{r}
+valor_promedio_por_venta <- 0.38/1200
+
+# Calcular los ingresos proyectados
+ingresos_proyectados <- sum(df_pronostico_completo$Media) * valor_promedio_por_venta
+
+ganancias_totales <- ingresos_proyectados*0.8
+
+# Mostrar los ingresos proyectados
+cat("Ingresos proyectados para el próximo año en millones dólares en camperas Patagonia $", ingresos_proyectados, "\n")
+cat("Ganancias totales en función de los ingresos proyectados en millones de dolares $", ganancias_totales, "\n")
+```
+
+**Cálculo de Metricas de Error**
+
+Se calculan las métricas Error Medio Absoluto (MAE), Error Cuadrático Medio (MSE), Error Absoluto Porcentual medio (MAPE) y Error Cuadrático Medio (RMSE) utilizando como pronóstico el conjunto de testeo para evaluar la precisión del modelo.
+
+**Métricas de Evaluación**
+
+-MAE (Error Medio Absoluto): Promedio de errores absolutos
+-MSE (Error Cuadrático Medio): Promedio de errores al cuadrado
+-MAPE (Error Absoluto Porcentual Medio): Error porcentual promedio
+-RMSE (Raíz del Error Cuadrático Medio): Desviación estándar de los errores
+
+```{r}
+horizonte_pronostico_prueba <- nrow(test)  # Para que el pronóstico cubra el mismo período que test
+
+pronostico_tbats_prueba <- forecast(model_tbats_train, h = horizonte_pronostico_prueba)
+
+df_pronostico_prueba <- data.frame(
+  Fecha = seq(from = as.Date("2017-01-01"), by = "day", length.out = horizonte_pronostico_prueba),
+  Media = pronostico_tbats_prueba$mean,
+  LI_95 = pronostico_tbats_prueba$lower[,2], 
+  LS_95 = pronostico_tbats_prueba$upper[,2]
+)
+
+# Unir las predicciones con los datos reales del conjunto de prueba
+comparacion <- merge(test, df_pronostico_prueba, by.x = "date", by.y = "Fecha")
+
+# Calcular métricas de error para el conjunto de prueba
+residuos_test <- comparacion$sales - comparacion$Media  # Usar 'Media' en lugar de 'Pronostico'
+mae_test <- mean(abs(residuos_test))
+mse_test <- mean(residuos_test^2)
+mape_test <- mean(abs(residuos_test / comparacion$sales))
+rmse <- sqrt(mean((comparacion$sales - comparacion$Media)^2))
+
+# Mostrar las métricas de error para el conjunto de prueba
+cat("Conjunto de Prueba\n")
+cat("Error medio absoluto (MAE):", mae_test, "\n")
+cat("Error cuadrático medio (MSE):", mse_test, "\n")
+cat("Error absoluto porcentual medio (MAPE):", mape_test, "\n")
+cat("Error cuadrático medio (RMSE):", rmse, "\n")
+
+```
+
+```{r}
+library(plotly)
+
+plot_ly(data = comparacion, x = ~date) |> 
+  add_lines(y = ~sales, name = "Real", line = list(color = "#66245b")) |> 
+  add_lines(y = ~Media, name = "Pronóstico", line = list(color = "#e64e81")) |> 
+  layout(title = "Comparación entre Ventas Reales y Pronosticadas",
+         xaxis = list(title= "Fecha"),
+         yaxis = list(title= "Ventas"))
+
+
+```
+
+**Cálculo del mejor Error en función de distintas estacionalidades**
+
+Se calcula el RMSE según el periodo de tiempo considerado.
+
+```{r}
+# Definir una lista de posibles combinaciones de períodos estacionales
+periodos_estacionales <- list(
+  c(7),             # Solo semanal
+  c(365.25),        # Solo anual
+  c(7, 365.25),     # Semanal y anual 
+  c(30, 365.25)     # Mensual y anual
+)
+
+# Inicializar variables para almacenar los mejores resultados
+mejor_modelo <- NULL
+mejor_rmse <- Inf
+
+# Loop para ajustar diferentes combinaciones de preiodos estacionales
+for (periodos in periodos_estacionales) {
+  # Entrenar el modelo con la combinacion de períodos estacionales
+  modelo_tbats <- tbats(serie_temporal, seasonal.periods = periodos)
+  
+  # Realizar predicciones
+  pronosticos_tbats <- forecast(modelo_tbats, h = nrow(test))$mean
+  
+  # Calcular los errores respecto al conjunto de prueba
+  df_pronostico <- data.frame(
+  Fecha = seq(from = min(test$date), by = "day", length.out = nrow(test)),  # Asegura mismo rango de fechas
+  Pronostico = pronosticos_tbats
+)
+
+  
+  # Unir predicciones con los datos de prueba
+  comparacion <- merge(test, df_pronostico, by.x = "date", by.y = "Fecha")
+  
+  # Calcular RMSE
+  rmse <- sqrt(mean((comparacion$sales - comparacion$Pronostico)^2))
+  
+  # Comparar RMSE y almacenar el mejor modelo
+  if(rmse < mejor_rmse){
+    mejor_rmse <- rmse
+    mejor_modelo <- modelo_tbats
+  }
+}
+
+# Imprimir el mejor RMSE y las estacionalidades correspondientes
+cat("Mejor RMSE", mejor_rmse, "\n")
+cat("Mejor período estacional:", mejor_modelo$seasonal.periods, "\n")
+```
+
+
