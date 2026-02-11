@@ -85,9 +85,3 @@ All required packages are installed automatically if not available.
 - Shiny  
 - Time Series Analysis  
 - Data Science  
-
----
-
-## License
-
-This project is licensed under the MIT License.
