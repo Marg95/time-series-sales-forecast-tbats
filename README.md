@@ -54,7 +54,7 @@ The analysis focuses on a randomly selected product and the store with the highe
 
 ---
 
-##  Libraries Used
+##  Tools
 
 - `forecast`
 - `TSA`
