@@ -1,83 +1,123 @@
 # Time Series Sales Forecast with TBATS
 
 Time series analysis and sales forecasting using TBATS models with multiple seasonalities in R.  
-The project includes data exploration, stationarity testing, model evaluation, forecasting, and interactive visualizations.
+This project develops a complete forecasting workflow including data exploration, statistical testing, model validation, and interactive visualization.
 
+
+---
 
 ## Project Overview
 
-This repository contains a complete workflow for **sales time series analysis**, applied to daily sales data over five years.  
-The main objective is to **model and forecast future sales** using the **TBATS** model, which is well-suited for series with multiple seasonal patterns.
+This repository presents a full end-to-end workflow for **daily sales forecasting** over a five-year period.
 
+The objective is to model complex seasonal sales behavior using the **TBATS model**, particularly suitable for time series with multiple seasonal patterns (e.g., weekly and annual seasonality).
+
+The project integrates statistical validation, model comparison, and performance evaluation to generate reliable future sales predictions.
+
+---
+
+## Business Value
+
+The developed methodology supports:
+
+- Demand forecasting for inventory planning  
+- Identification of seasonal sales patterns  
+- Short- and medium-term sales projections  
+- Model performance comparison for decision support  
+- Reduction of uncertainty in commercial planning  
+
+---
 
 ## Objectives
 
 - Explore and visualize historical sales data  
-- Analyze temporal structure and seasonality  
-- Test stationarity using the Dickey-Fuller test  
-- Train TBATS forecasting models  
+- Identify temporal patterns and seasonality  
+- Test stationarity using the Augmented Dickey-Fuller test  
+- Train TBATS forecasting models with multiple seasonalities  
 - Generate future sales predictions with confidence intervals  
 - Evaluate model performance using error metrics  
 - Compare different seasonal configurations  
-- Build an interactive Shiny application  
+- Develop an interactive Shiny application for visualization  
 
+---
 
 ## Dataset
 
 - **Source**: `train.csv`  
 - **Period**: 2013-01-01 to 2017-12-31  
 - **Frequency**: Daily  
-- **Context**: Simulated sales data for Patagonia “Nano Puff Jacket” products  
+- **Context**: Simulated retail sales data (Patagonia “Nano Puff Jacket”)  
 - **Main variables**:
   - `date`
   - `sales`
   - `store`
   - `item`
 
-The analysis focuses on a randomly selected product and the store with the highest sales volume.
+The analysis focuses on a selected product and the store with the highest sales volume to ensure consistent demand behavior modeling.
 
+---
 
 ## Methodology
 
-1. Exploratory data analysis and visualization  
-2. Stationarity testing (ADF test)  
-3. Train / test split  
-4. Time series construction  
-5. TBATS model fitting with multiple seasonalities  
-6. Forecasting and confidence intervals  
-7. Model evaluation (MAE, MSE, MAPE, RMSE)  
-8. Seasonal configuration comparison  
+1. Exploratory Data Analysis (EDA) and visualization  
+2. Time series decomposition  
+3. Stationarity testing (ADF test)  
+4. Train / test split  
+5. Time series object construction  
+6. TBATS model fitting with multiple seasonalities  
+7. Forecast generation with confidence intervals  
+8. Model evaluation (MAE, MSE, RMSE, MAPE)  
+9. Seasonal configuration comparison  
 
+---
 
-##  Tools
-
-- `forecast`
-- `TSA`
-- `tseries`
-- `ggplot2`
-- `dplyr`
-- `readr`
-- `plotly`
-- `shiny`
-
-All required packages are installed automatically if not available.
-
-
-##  How to Run
-
-1. Clone the repository  
-2. Ensure `train.csv` is in the root directory  
-3. Open and run `series_temporales.Rmd`  
-4. Render to HTML or run as a Shiny application  
-
-
-##  Tools
+## Technologies and Tools
 
 - R  
 - RMarkdown  
 - Shiny  
-- Time Series Analysis  
-- Data Science
+- `forecast`  
+- `tseries`  
+- `TSA`  
+- `ggplot2`  
+- `dplyr`  
+- `readr`  
+- `plotly`  
+
+All required packages are installed automatically if not available.
+
+---
+
+## Results
+
+The workflow produces:
+
+- Forecast visualizations with confidence intervals  
+- Error metrics for model validation  
+- Comparative analysis of seasonal configurations  
+- Interactive dashboard for dynamic exploration  
+
+---
+
+## How to Run
+
+1. Clone the repository  
+2. Ensure `train.csv` is located in the root directory  
+3. Open and run `series_temporales.Rmd`  
+4. Render to HTML or launch as a Shiny application  
+
+---
+
+## Skills Demonstrated
+
+- Time series analysis  
+- Forecasting with multiple seasonalities  
+- Statistical testing and validation  
+- Model evaluation and performance metrics  
+- Interactive dashboard development  
+- Business-oriented data interpretation  
+
+---
 
 ## Author
 
